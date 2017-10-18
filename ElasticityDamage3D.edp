@@ -1,0 +1,257 @@
+// Here we solve the 3D elasticity problem aimed to
+// to be coupled with Lyakowsky's model, 
+// \partial_t U = L (U) + f
+// U = on the boundary
+load "iovtk";
+// for 3D implementations
+load "msh3"
+
+
+// Define parameters for model.
+//-----------------------------------------
+// Model parameters.
+//-----------------------------------------
+real MP = 1 ;
+real mu0    = 30000 * MP ;
+real gammar; 
+real mur;
+real lambda = 30000 * MP;
+real rho    = 2700 * MP;
+real kappa;
+real C;
+real E  = mu0 *( 3 * lambda + 2 * mu0) / (lambda + mu0); 
+real nu = lambda /  (2 * ( lambda + mu0)); 
+real tEnd = 100;
+real g = -10;
+real k;
+
+real eta1 = 1e-2, eta2 = 1e-1, ac = 0.7 ;
+
+gammar = 0;
+kappa = 0;
+C = 0;
+
+gammar = 35000 * MP; 
+mur =  1.8 * gammar;
+C = 1e-4; //-6 a -4 (test)
+kappa = 1e-9;
+eta1 = 0; eta2 = 0;
+
+real dt = 5e-2 ;
+real time ;
+real x0, x1, y0, y1;
+// set values of the corner of a square.
+x0 = -1;
+x1 =  1;
+y0 = -1;
+y1 =  1;
+
+// Defining the borders of the computational domain. It is a parametrization of the
+// boundary
+border down  ( t = 0, 1 ){ x = x0 + t*(x1 - x0); y = y0              ; label = 1; };
+border right ( t = 0, 1 ){ x = x1              ; y = y0 + t*(y1 - y0); label = 2; };
+border top   ( t = 0, 1 ){ x = x1 + t*(x0 - x1); y = y1              ; label = 3; };
+border left  ( t = 0, 1 ){ x = x0              ; y = y1 + t*(y0 - y1); label = 4; };
+// define the number of discretization of each parametrized curve
+int n = 12;
+// build the mesh from parametrization of the boundary
+mesh Th2 = buildmesh(down(n)+right(n)+top(2*n)+left(n));
+int nn = 12;
+real zmin = -1;
+real zmax = 1;
+int itnl;
+//Relabel the cube: 
+// - the 2D label 1 is now changed to 1
+// - the 2D label 2 is now changed to 2
+// - the 2D label 3 is now changed to 1
+// - the 2D label 4 is now changed to 2
+//
+// - New lables for upper tringles is 3 
+// - New lables for low tringles is 4 
+
+int[int] rup=[0,4], rdlow=[0,3], rmid=[1,1,2,2,3,1,4,2] ;
+mesh3 Th = buildlayers ( Th2, nn, zbound = [ zmin, zmax] ,
+						reffacemid = rmid ,
+						reffaceup  = rup ,
+						reffacelow = rdlow
+   );
+
+//plot (Th,wait=1, ps ="mesh.eps");
+
+// Define the Finite Elment (FE) space
+fespace Vh (Th,P1);
+// Define elements of the FE space 
+Vh  u1,u2,u3,u1n,u2n,u3n, u1nl,u2nl,u3nl,alphanl, verr,mRHS,
+	u1o,u2o,u3o,v1,v2,v3,alpha, muequiv,
+	alphan , w , fx , fy , fz  , 
+	u1i , u2i, u3i , fd1 , I3 , 
+	cxi1 , cxi2 , cxi3 , etaalpha ,
+	gx , gy , gz , f1 , sigmaY ,
+	eij, EpEij, TrE,
+	epXX, epYY, epZZ, epXY, epXZ, epYZ, 
+	dotepXX, dotepYY, dotepZZ, dotepXY, dotepXZ, dotepYZ,
+	EnablaV 
+	;
+
+// Define operators for the weak formulation.
+// Define macros for elasticity
+
+
+macro div( u1 , u2 , u3 )(dx(u1) + dy(u2) + dz( u3 ) )  //
+macro epsilon(u1,u2,u3) [ dx( u1 ), dy( u2 ), dz( u3 ),
+ 0.5 * ( dx( u2 ) + dy( u1 ) ), 0.5 * ( dx( u2 ) + dy( u1 ) ), 
+ 0.5 * ( dx( u3 ) + dz( u1 ) ), 0.5 * ( dx( u3 ) + dz( u1 ) ), 
+ 0.5 * ( dy( u3 ) + dz( u2 ) ), 0.5 * ( dy( u3 ) + dz( u2 ) )  ]   //
+macro grad(phi) [ dx( phi ), dy(phi), dz(phi)]  //
+
+macro I1(u1,u2,u3) (div(u1,u2,u3) ) //
+macro I2(u1,u2,u3) ( epsilon (u1,u2,u3)'* epsilon ( u1, u2, u3) ) //
+macro Xi(u1,u2,u3) ( I1(u1,u2,u3) /( sqrt( I2(u1,u2,u3)) + 1e-9)  ) //
+
+
+
+//  Stress 
+macro stressX( u1, u2, u3) ( lambda * I1(u1,u2,u3) + 2 * mu0 *  dx(u1)  )  // 
+macro stressY( u1, u2, u3) ( lambda * I1(u1,u2,u3) + 2 * mu0 *  dy(u2)  )  // 
+macro stressZ( u1, u2, u3) ( lambda * I1(u1,u2,u3) + 2 * mu0 *  dz(u3)  )  //
+ 
+
+
+// Strain
+macro epsilXX ( u1 , u2, u3) ( dx(u1)   ) //
+macro epsilYY (u1, u2, u3) ( dy(u2)   ) //
+macro epsilZZ (u1, u2, u3) ( dz(u3)   ) //
+
+macro epsilXY (u1, u2, u3) ( 0.5 * ( dx(u2) + dy(u1) )   ) //
+macro epsilXZ (u1, u2, u3) ( 0.5 * ( dx(u3) + dz(u1) )   ) //
+macro epsilYZ (u1, u2, u3) ( 0.5 * ( dz(u2) + dy(u3) )   ) //
+
+
+
+macro eta (alpha) ( eta1 + eta2 / (ac - alpha)  ) //
+macro deta (alpha) ( eta2 / (ac - alpha)^2 ) //
+
+
+problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) = 
+	int3d(Th)( 
+		  (rho/dt^2)*[u1,u2,u3]' *[v1,v2,v3]  
+		 + lambda * div (u1,u2,u3) * div (v1,v2,v3) 
+		 + muequiv * epsilon(u1,u2,u3)'* epsilon(v1,v2,v3) 	
+		// Blilinear alpha
+		 + (1/C/dt)*alpha*w
+		 + kappa * grad(alpha) '* grad(w)
+		 )   // Bilinear part
+
+//Right hand side 
+	- int3d(Th)(  
+			[fx,fy,fz]' * [v1,v2,v3]          
+		+ 	1/dt * etaalpha *  epsilon(u1n,u2n,u3n)'* epsilon(v1,v2,v3) 
+		+  	cxi1 * div(v1,v2,v3) 
+			// RHS alpha
+		+	I3 *w
+		)   
+
+			 //+ on(1,2, u1 = fd1) 
+			 // + on( 5, alpha = 0) 
+//			 + on (1, 2, 3, 4, alpha = 0 )                        //Dirichlet b.c
+			 + on (1,u2 = 0) + on(2,u1 = 0) + on( 3, u3 = 0)
+			 //+ int1d(Th,5)( - dt * kappa * C * 1.1 *  w * alpha )
+			 //+ int1d(Th,2)( v1 * gx )                         // Newman on interanal bc
+
+;
+
+
+//-------------------------------------------
+// Evolve the elasticity equation in time.
+//-------------------------------------------
+
+// Initial condition
+
+//u1o = 0.3 * exp(-30*( (x)^2 + (y)^2 ) );
+u1o = 0;
+u1n = u1o + dt * 0;
+
+u2o = 0;
+u2n = u2o + dt * 0;
+
+u3o = 0; 
+u3n = u3o + dt * 0;
+
+
+alphan = 0;
+//plot(u1o , cmm="Initial condition u1");
+//plot(u2o , cmm="Initial condition u2");
+gx = 10 ;
+time = 0;
+
+// Store min and max values of alpha
+ofstream ff("extremealpha.dat");
+
+k = 1;
+for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
+{
+	f1 =  g * rho ;
+
+	// Right hand side for the displacement	
+	fx = (2*u1n- u1o ) * rho  ;
+	fy = (2*u2n- u2o ) * rho  ;
+	fz = (2*u3n- u3o ) * rho  + dt^2  * f1;
+
+   // Non-linear terms are implemented by fixed-point iterations (u1nl...alphanl)
+
+	u1nl=u1n;u2nl=u2n;u3nl=u3n;
+	alphanl=alphan;
+	real errnl=1; itnl=0;
+	while (errnl>1e-15 || itnl<2 ) {
+		etaalpha=eta(alphanl);
+		muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) + 1/dt * etaalpha;
+		cxi1 =   gammar  * sqrt( I2(u1nl,u2nl,u3nl) ) * alphanl; 
+		
+		I3 = 1/C/dt*alphan
+		    + mur * epsilon(u1nl,u2nl,u3nl)  '*  epsilon(u1nl,u2nl,u3nl) 
+		    +  gammar *abs(div(u1nl,u2nl,u3nl))* sqrt( I2(u1nl,u2nl,u3nl)  ) 
+			-  deta(alphanl)* epsilon(u1nl,u2nl,u3nl)  '*  (epsilon(u1nl,u2nl,u3nl)-epsilon(u1n,u2n,u3n)) /dt
+			;
+	
+	
+		elasticity;
+		
+		verr=abs(u1-u1nl)+abs(u2-u2nl)+abs(u3-u3nl)+abs(alpha-alphanl);
+		errnl=verr[].max;
+		itnl++;
+		cout << " itnl = "<< itnl << endl; 
+		cout << " errnl = "<< errnl << endl; 
+		cout << " min alpha = "<< alpha[].min << endl; 
+		cout << " max alpha = "<< alpha[].max << endl; 
+		
+		
+		
+		u1nl=u1;u2nl=u2;u3nl=u3;alphanl=alpha;
+	}
+
+	{
+		ofstream ff("extremealpha.dat",append);
+		ff<< time << "\t" <<  alpha[].min  << "\t" << alpha[].max  << endl;
+	}
+   // Update the solution associated to the current time level.
+   u1o = u1n ;
+   u1n = u1 ;       
+
+   u2o = u2n ;
+   u2n = u2 ;    
+
+   u3o = u3n ;
+   u3n = u3 ;    
+
+
+   alphan = alpha ;
+ 
+   time = time + dt; 
+   cout<< " time = "<<time<<" dt = "<<dt << endl;
+
+  // Save the solution in a vtk output.
+	if(i-10*k == 0) {
+		savevtk("vtk/solution"+i+".vtk",Th,[u1,u2,u3],alpha);//'saves' vtk'file'for'each'iteratio
+		k = k+1;
+	};
+};
