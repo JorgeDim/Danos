@@ -1,12 +1,18 @@
-// Here we solve the 3D elasticity problem aimed to
+// Here we solve the 3D elasticity problem aimed
 // to be coupled with Lyakowsky's model, 
-// \partial_t U = L (U) + f
-// U = on the boundary
 load "iovtk";
 // for 3D implementations
 load "msh3"
 
-
+// JSM: Tipos de modelo a testear:
+int VersionEta=1; 		//0: no hay eta, 
+						//1: Se usa la función eta(alpha) del articulo. 
+						//2: Se usa la función eta(alpha) propuesta por JSM
+int UsoEpsilonUpunto=1; //1: Se usa el modelo con el término \eta(\alpha)*E(u):E(udot). 
+						//0: Se usa E(u) en lugar de E(udot) en dicha parte del modelo "propuesto por JSM"
+int VersionDivEta=1;	//1: Se usa termino: RHSalpha+= gammar *	div(u1nl,u2nl,u3nl)     		* sqrt( I2(u1nl,u2nl,u3nl) );
+						//2: Se usa término: RHSalpha+= gammar *	abs(div(u1nl,u2nl,u3nl))		* sqrt( I2(u1nl,u2nl,u3nl) );
+						//3: Se usa término: RHSalpha+= gammar *	max(div(u1nl,u2nl,u3nl),0*u1nl)	* sqrt( I2(u1nl,u2nl,u3nl) );
 // Define parameters for model.
 //-----------------------------------------
 // Model parameters.
@@ -21,11 +27,11 @@ real kappa;
 real C;
 real E  = mu0 *( 3 * lambda + 2 * mu0) / (lambda + mu0); 
 real nu = lambda /  (2 * ( lambda + mu0)); 
-real tEnd = 100;
-real g = -10;
+real tEnd = 20;
+real Cgravedad = 9.8;
 real k;
 
-real eta1 = 1e-2, eta2 = 1e-1, ac = 0.7 ;
+real eta1 = 1e-2, eta2 = 1e-1, ac,MGrande,MGrande2;
 
 gammar = 0;
 kappa = 0;
@@ -33,11 +39,11 @@ C = 0;
 
 gammar = 35000 * MP; 
 mur =  1.8 * gammar;
-C = 1e-4; //-6 a -4 (test)
+C = 1e-6; 
 kappa = 1e-9;
-eta1 = 0; eta2 = 0;
+//eta1 = 0; eta2 = 0;
 
-real dt = 5e-2 ;
+real dt = 2.5e-2 ;
 real time ;
 real x0, x1, y0, y1;
 // set values of the corner of a square.
@@ -53,10 +59,10 @@ border right ( t = 0, 1 ){ x = x1              ; y = y0 + t*(y1 - y0); label = 2
 border top   ( t = 0, 1 ){ x = x1 + t*(x0 - x1); y = y1              ; label = 3; };
 border left  ( t = 0, 1 ){ x = x0              ; y = y1 + t*(y0 - y1); label = 4; };
 // define the number of discretization of each parametrized curve
-int n = 12;
+int n = 5;
 // build the mesh from parametrization of the boundary
-mesh Th2 = buildmesh(down(n)+right(n)+top(2*n)+left(n));
-int nn = 12;
+mesh Th2 = buildmesh(down(n)+right(n)+top(n)+left(n));
+int nn = 5;
 real zmin = -1;
 real zmax = 1;
 int itnl;
@@ -81,84 +87,68 @@ mesh3 Th = buildlayers ( Th2, nn, zbound = [ zmin, zmax] ,
 // Define the Finite Elment (FE) space
 fespace Vh (Th,P1);
 // Define elements of the FE space 
-Vh  u1,u2,u3,u1n,u2n,u3n, u1nl,u2nl,u3nl,alphanl, verr,mRHS,
+Vh  u1,u2,u3,u1n,u2n,u3n, u1nl,u2nl,u3nl,alphanl, u1nl2,u2nl2,u3nl2,alphanl2,verr,mRHS,
 	u1o,u2o,u3o,v1,v2,v3,alpha, muequiv,
 	alphan , w , fx , fy , fz  , 
-	u1i , u2i, u3i , fd1 , I3 , 
-	cxi1 , cxi2 , cxi3 , etaalpha ,
-	gx , gy , gz , f1 , sigmaY ,
+	u1i , u2i, u3i , fd1 , RHSalpha , 
+	cxi1 , cxi2 , cxRHSalpha , etaalpha ,detaalpha,
+	sigmaY ,
 	eij, EpEij, TrE,
 	epXX, epYY, epZZ, epXY, epXZ, epYZ, 
 	dotepXX, dotepYY, dotepZZ, dotepXY, dotepXZ, dotepYZ,
 	EnablaV 
 	;
 
-// Define operators for the weak formulation.
 // Define macros for elasticity
 
 
-macro div( u1 , u2 , u3 )(dx(u1) + dy(u2) + dz( u3 ) )  //
-macro epsilon(u1,u2,u3) [ dx( u1 ), dy( u2 ), dz( u3 ),
- 0.5 * ( dx( u2 ) + dy( u1 ) ), 0.5 * ( dx( u2 ) + dy( u1 ) ), 
- 0.5 * ( dx( u3 ) + dz( u1 ) ), 0.5 * ( dx( u3 ) + dz( u1 ) ), 
- 0.5 * ( dy( u3 ) + dz( u2 ) ), 0.5 * ( dy( u3 ) + dz( u2 ) )  ]   //
-macro grad(phi) [ dx( phi ), dy(phi), dz(phi)]  //
+macro div(u1,u2,u3)( dx(u1)+dy(u2)+dz(u3) )  //
+macro epsilon(u1,u2,u3) [ dx(u1), dy(u2), dz(u3),
+ 0.5 * ( dx(u2)+dy(u1) ), 0.5 * ( dx(u2)+dy(u1) ), 
+ 0.5 * ( dx(u3)+dz(u1) ), 0.5 * ( dx(u3)+dz(u1) ), 
+ 0.5 * ( dy(u3)+dz(u2) ), 0.5 * ( dy(u3)+dz(u2) )  ]   //
+macro grad(phi) [ dx(phi), dy(phi), dz(phi)]  //
 
 macro I1(u1,u2,u3) (div(u1,u2,u3) ) //
 macro I2(u1,u2,u3) ( epsilon (u1,u2,u3)'* epsilon ( u1, u2, u3) ) //
 macro Xi(u1,u2,u3) ( I1(u1,u2,u3) /( sqrt( I2(u1,u2,u3)) + 1e-9)  ) //
 
-
-
-//  Stress 
-macro stressX( u1, u2, u3) ( lambda * I1(u1,u2,u3) + 2 * mu0 *  dx(u1)  )  // 
-macro stressY( u1, u2, u3) ( lambda * I1(u1,u2,u3) + 2 * mu0 *  dy(u2)  )  // 
-macro stressZ( u1, u2, u3) ( lambda * I1(u1,u2,u3) + 2 * mu0 *  dz(u3)  )  //
- 
-
-
-// Strain
-macro epsilXX ( u1 , u2, u3) ( dx(u1)   ) //
-macro epsilYY (u1, u2, u3) ( dy(u2)   ) //
-macro epsilZZ (u1, u2, u3) ( dz(u3)   ) //
-
-macro epsilXY (u1, u2, u3) ( 0.5 * ( dx(u2) + dy(u1) )   ) //
-macro epsilXZ (u1, u2, u3) ( 0.5 * ( dx(u3) + dz(u1) )   ) //
-macro epsilYZ (u1, u2, u3) ( 0.5 * ( dz(u2) + dy(u3) )   ) //
-
-
-
+//Macros para implementar la funcion eta(alpha)
+ac =0.5;MGrande=500*mu0;MGrande2=(MGrande/(1e-1*mu0))^2;
 macro eta (alpha) ( eta1 + eta2 / (ac - alpha)  ) //
 macro deta (alpha) ( eta2 / (ac - alpha)^2 ) //
+macro etaM  (alpha) ( MGrande*((alpha-ac)   +sqrt((alpha-ac)^2+1/MGrande2))) //
+macro detaM (alpha) ( MGrande*(1+ (alpha-ac)/sqrt((alpha-ac)^2+1/MGrande2))) //
 
-
-problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) = 
-	int3d(Th)( 
-		  (rho/dt^2)*[u1,u2,u3]' *[v1,v2,v3]  
-		 + lambda * div (u1,u2,u3) * div (v1,v2,v3) 
-		 + muequiv * epsilon(u1,u2,u3)'* epsilon(v1,v2,v3) 	
-		// Blilinear alpha
-		 + (1/C/dt)*alpha*w
-		 + kappa * grad(alpha) '* grad(w)
-		 )   // Bilinear part
-
-//Right hand side 
-	- int3d(Th)(  
-			[fx,fy,fz]' * [v1,v2,v3]          
-		+ 	1/dt * etaalpha *  epsilon(u1n,u2n,u3n)'* epsilon(v1,v2,v3) 
-		+  	cxi1 * div(v1,v2,v3) 
-			// RHS alpha
-		+	I3 *w
-		)   
-
-			 //+ on(1,2, u1 = fd1) 
-			 // + on( 5, alpha = 0) 
-//			 + on (1, 2, 3, 4, alpha = 0 )                        //Dirichlet b.c
-			 + on (1,u2 = 0) + on(2,u1 = 0) + on( 3, u3 = 0)
-			 //+ int1d(Th,5)( - dt * kappa * C * 1.1 *  w * alpha )
-			 //+ int1d(Th,2)( v1 * gx )                         // Newman on interanal bc
-
-;
+//=========================================================================================================
+//=========================================================================================================
+problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) = 					//=====
+	int3d(Th)( 																						//=====
+		//Bilinear [u],[v]																			//=====
+			(rho/dt^2)*[u1,u2,u3]' *[v1,v2,v3]  													//=====
+			+ lambda * div (u1,u2,u3) * div (v1,v2,v3) 											//=====
+			+ muequiv * epsilon(u1,u2,u3)'* epsilon(v1,v2,v3) 									//=====
+		// Blilinear alpha,w																		//=====
+			+ (1/C/dt)*alpha*w																		//=====
+			+ kappa * grad(alpha) '* grad(w)														//=====
+		)   																						//=====
+																									//=====
+//Right hand side (pasa del lado Izquierdo con menos!!!)											//=====
+	- int3d(Th)(  																					//=====
+		// RHS [u]																					//=====
+			[fx,fy,fz]' * [v1,v2,v3]          														//=====
+			+ 	UsoEpsilonUpunto * 1/dt * etaalpha *  epsilon(u1n,u2n,u3n)'* epsilon(v1,v2,v3)	//=====
+			+  	cxi1 * div(v1,v2,v3) 																//=====
+		// RHS alpha																				//=====
+			+	RHSalpha *w																			//=====
+		)   																						//=====
+																									//=====
+//Condiciones de borde																				//=====
+//			 + on (1, 2, 3, 4, alpha = 0 )                        //Dirichlet b.c					//=====
+			 + on (1,u2 = 0) + on(2,u1 = 0) + on( 3, u3 = 0)										//=====
+; //end: ploblem elasticity																			//=====
+//=========================================================================================================
+//=========================================================================================================
 
 
 //-------------------------------------------
@@ -177,61 +167,94 @@ u2n = u2o + dt * 0;
 u3o = 0; 
 u3n = u3o + dt * 0;
 
-
 alphan = 0;
 //plot(u1o , cmm="Initial condition u1");
 //plot(u2o , cmm="Initial condition u2");
-gx = 10 ;
 time = 0;
-
 // Store min and max values of alpha
 ofstream ff("extremealpha.dat");
-
+{ofstream ff("datos.dat");ff<< ac << "\t" <<  MGrande << "\t" << MGrande2
+<<  "\t" << mu0 <<  "\t" << eta1<< "\t" << eta2<<  endl;}
 k = 1;
+etaalpha=0;detaalpha=0;
 for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
 {
-	f1 =  g * rho ;
 
 	// Right hand side for the displacement	
-	fx = (2*u1n- u1o ) * rho  ;
-	fy = (2*u2n- u2o ) * rho  ;
-	fz = (2*u3n- u3o ) * rho  + dt^2  * f1;
+	fx = 					 (2*u1n- u1o ) * rho /dt^2 ;
+	fy = 					 (2*u2n- u2o ) * rho /dt^2 ;
+	fz =  -Cgravedad * rho + (2*u3n- u3o ) * rho /dt^2 ;
 
    // Non-linear terms are implemented by fixed-point iterations (u1nl...alphanl)
-
 	u1nl=u1n;u2nl=u2n;u3nl=u3n;
 	alphanl=alphan;
-	real errnl=1; itnl=0;
-	while (errnl>1e-15 || itnl<2 ) {
-		etaalpha=eta(alphanl);
-		muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) + 1/dt * etaalpha;
+	real errnl=1,errnl2=10,relaj=1; itnl=0;
+	while ((errnl>1e-8 || itnl<2)&& itnl<50 ) {
+		itnl++;
+		cout << "itnl = "<< itnl << endl; 
+		
+		if (VersionEta==1) {
+			etaalpha=eta(alphanl);
+			detaalpha=deta(alphanl);
+		} else if (VersionEta==2)  {
+			etaalpha=etaM(alphanl);
+			detaalpha=detaM(alphanl);
+		} 
+		if (UsoEpsilonUpunto==1) {
+			muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) + 1/dt * etaalpha; // JSM:1 (version E(udot))
+		} else {
+			muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) +  etaalpha; 		// JSM:1 (version E(u))
+		}
 		cxi1 =   gammar  * sqrt( I2(u1nl,u2nl,u3nl) ) * alphanl; 
 		
-		I3 = 1/C/dt*alphan
-		    + mur * epsilon(u1nl,u2nl,u3nl)  '*  epsilon(u1nl,u2nl,u3nl) 
-		    +  gammar *abs(div(u1nl,u2nl,u3nl))* sqrt( I2(u1nl,u2nl,u3nl)  ) 
-			-  deta(alphanl)* epsilon(u1nl,u2nl,u3nl)  '*  (epsilon(u1nl,u2nl,u3nl)-epsilon(u1n,u2n,u3n)) /dt
-			;
+		RHSalpha = 1/C/dt*alphan
+		    + mur * epsilon(u1nl,u2nl,u3nl)  '*  epsilon(u1nl,u2nl,u3nl) ;
 	
+		if (VersionDivEta==1) {
+			RHSalpha = RHSalpha+ gammar *	div(u1nl,u2nl,u3nl)    				* sqrt( I2(u1nl,u2nl,u3nl) );
+		} else if (VersionDivEta==2) {
+			RHSalpha = RHSalpha+ gammar *	abs(div(u1nl,u2nl,u3nl))			* sqrt( I2(u1nl,u2nl,u3nl) );
+		} else if (VersionDivEta==3) {
+			RHSalpha = RHSalpha+ gammar *	max(div(u1nl,u2nl,u3nl),0*u1nl)	* sqrt( I2(u1nl,u2nl,u3nl) );
+		} 
+		if (UsoEpsilonUpunto==1) {					// JSM:1 (version E(udot))
+			muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) + 1/dt * etaalpha; 
+			RHSalpha = RHSalpha -  detaalpha* epsilon(u1nl,u2nl,u3nl)  '*  (epsilon(u1nl,u2nl,u3nl)-epsilon(u1n,u2n,u3n)) /dt;
+		} else {
+			muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) +  etaalpha; 		// JSM:1 (version E(u))
+			RHSalpha = RHSalpha -  detaalpha* epsilon(u1nl,u2nl,u3nl)  '*  epsilon(u1nl,u2nl,u3nl) ;			
+		}
 	
 		elasticity;
 		
 		verr=abs(u1-u1nl)+abs(u2-u2nl)+abs(u3-u3nl)+abs(alpha-alphanl);
 		errnl=verr[].max;
-		itnl++;
-		cout << " itnl = "<< itnl << endl; 
-		cout << " errnl = "<< errnl << endl; 
-		cout << " min alpha = "<< alpha[].min << endl; 
-		cout << " max alpha = "<< alpha[].max << endl; 
+		cout << " errnl = "<< errnl << " errnl2 = "<< errnl2 << " relaj = "<< relaj <<endl; 
 		
+		if (errnl>errnl2) {
+			if (relaj>1e-5) {
+				relaj=relaj/10;
+				u1=u1nl;u2=u2nl;u3=u3nl;alpha=alphanl;
+				u1nl=u1nl2;u2nl=u2nl2;u3nl=u3nl2;alphanl=alphanl2;
+				errnl=errnl2;
+			}
+		} else {
+			relaj=relaj*2;
+			if (relaj>1){relaj=1;}
 		
-		
-		u1nl=u1;u2nl=u2;u3nl=u3;alphanl=alpha;
+		}
+		u1nl2=u1nl;u2nl2=u2nl;u3nl2=u3nl;alphanl2=alphanl;
+		u1nl=u1nl+relaj*(u1-u1nl);u2nl=u2nl+relaj*(u2-u2nl);u3nl=u3nl+relaj*(u3-u3nl);alphanl=alphanl+relaj*(alpha-alphanl);
+		errnl2=errnl;
 	}
 
 	{
 		ofstream ff("extremealpha.dat",append);
-		ff<< time << "\t" <<  alpha[].min  << "\t" << alpha[].max  << endl;
+		ff<< time << "\t" <<  alpha[].min  << "\t" << alpha[].max  
+		<< "\t" <<  u3[].min  << "\t" << u3[].max  
+		<< "\t" << itnl 
+		<< "\t" << errnl 
+		<<  endl;
 	}
    // Update the solution associated to the current time level.
    u1o = u1n ;
