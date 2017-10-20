@@ -22,7 +22,7 @@ casos=(
    "213"  # (2)eta=MGrande , (1)E(udot), (3)max(div(u),0)
 )
 
-case version in
+case $version in
     "new")
         for i in "${casos[@]}"
         do
