@@ -1,1 +1,1 @@
-# Danos
+El programa princpal es Danos
