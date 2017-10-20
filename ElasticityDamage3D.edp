@@ -122,12 +122,12 @@ macro detaM (alpha) ( MGrande*(1+ (alpha-ac)/sqrt((alpha-ac)^2+1/MGrande2))) //
 
 //=========================================================================================================
 //=========================================================================================================
-problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) =                   //=====
+problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) =                       //=====
     int3d(Th)(                                                                                      //=====
         //Bilinear [u],[v]                                                                          //=====
             (rho/dt^2)*[u1,u2,u3]' *[v1,v2,v3]                                                      //=====
-            + lambda * div (u1,u2,u3) * div (v1,v2,v3)                                          //=====
-            + muequiv * epsilon(u1,u2,u3)'* epsilon(v1,v2,v3)                                   //=====
+            + lambda * div (u1,u2,u3) * div (v1,v2,v3)                                              //=====
+            + muequiv * epsilon(u1,u2,u3)'* epsilon(v1,v2,v3)                                       //=====
         // Blilinear alpha,w                                                                        //=====
             + (1/C/dt)*alpha*w                                                                      //=====
             + kappa * grad(alpha) '* grad(w)                                                        //=====
@@ -137,7 +137,7 @@ problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) =   
     - int3d(Th)(                                                                                    //=====
         // RHS [u]                                                                                  //=====
             [fx,fy,fz]' * [v1,v2,v3]                                                                //=====
-            +   UsoEpsilonUpunto * 1/dt * etaalpha *  epsilon(u1n,u2n,u3n)'* epsilon(v1,v2,v3)  //=====
+            +   UsoEpsilonUpunto * 1/dt * etaalpha *  epsilon(u1n,u2n,u3n)'* epsilon(v1,v2,v3)      //=====
             +   cxi1 * div(v1,v2,v3)                                                                //=====
         // RHS alpha                                                                                //=====
             +   RHSalpha *w                                                                         //=====
@@ -215,7 +215,7 @@ for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
         } else if (VersionDivEta==2) {
             RHSalpha = RHSalpha+ gammar *   abs(div(u1nl,u2nl,u3nl))            * sqrt( I2(u1nl,u2nl,u3nl) );
         } else if (VersionDivEta==3) {
-            RHSalpha = RHSalpha+ gammar *   max(div(u1nl,u2nl,u3nl),0*u1nl) * sqrt( I2(u1nl,u2nl,u3nl) );
+            RHSalpha = RHSalpha+ gammar *   max(div(u1nl,u2nl,u3nl),0*u1nl)     * sqrt( I2(u1nl,u2nl,u3nl) );
         } 
         if (UsoEpsilonUpunto==1) {                  // JSM:1 (version E(udot))
             muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) + 1/dt * etaalpha; 
