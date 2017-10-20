@@ -48,11 +48,13 @@ GraficosVarios.m
 ==================
 Es un programa en MATLAB que grafica los casos pedidos.
 Hay que definir al principio un arreglo de prefijos a graficar:
+<pre>
     prefijos={...
         '001' ...% (0)eta=0       , (0)E(u),    (1)    div(u)
         '002' ...% (0)eta=0       , (0)E(u),    (2)abs(div(u))
         '003' ...% (0)eta=0       , (0)E(u),    (3)max(div(u),0)
         '011' ...% (0)eta=0       , (1)E(udot), (1)    div(u)
         etc....
+</pre>
         
         
