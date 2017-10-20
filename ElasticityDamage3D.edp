@@ -12,7 +12,9 @@ int UsoEpsilonUpunto=1; //1: Se usa el modelo con el término \eta(\alpha)*E(u):
                         //0: Se usa E(u) en lugar de E(udot) en dicha parte del modelo "propuesto por JSM"
 int VersionDivEta=1;    //1: Se usa termino: RHSalpha+= gammar *    div(u1nl,u2nl,u3nl)             * sqrt( I2(u1nl,u2nl,u3nl) );
                         //2: Se usa término: RHSalpha+= gammar *    abs(div(u1nl,u2nl,u3nl))        * sqrt( I2(u1nl,u2nl,u3nl) );
-                        //3: Se usa término: RHSalpha+= gammar *    max(div(u1nl,u2nl,u3nl),0*u1nl) * sqrt( I2(u1nl,u2nl,u3nl) );
+                        //3: Se usa término: RHSalpha+= gammar *    max(div(u1nl,u2nl,u3nl),0*u1nl) * sqrt( I2(u1nl,u2nl,u3nl) )
+include "Defaults.idp";	
+string prefix=	""+VersionEta+	UsoEpsilonUpunto+VersionDivEta+"_";			
 // Define parameters for model.
 //-----------------------------------------
 // Model parameters.
@@ -104,9 +106,9 @@ Vh  u1,u2,u3,u1n,u2n,u3n, u1nl,u2nl,u3nl,alphanl, u1nl2,u2nl2,u3nl2,alphanl2,ver
 
 macro div(u1,u2,u3)( dx(u1)+dy(u2)+dz(u3) )  //
 macro epsilon(u1,u2,u3) [ dx(u1), dy(u2), dz(u3),
- 0.5 * ( dx(u2)+dy(u1) ), 0.5 * ( dx(u2)+dy(u1) ), 
- 0.5 * ( dx(u3)+dz(u1) ), 0.5 * ( dx(u3)+dz(u1) ), 
- 0.5 * ( dy(u3)+dz(u2) ), 0.5 * ( dy(u3)+dz(u2) )  ]   //
+        0.5 * ( dx(u2)+dy(u1) ), 0.5 * ( dx(u2)+dy(u1) ), 
+        0.5 * ( dx(u3)+dz(u1) ), 0.5 * ( dx(u3)+dz(u1) ), 
+        0.5 * ( dy(u3)+dz(u2) ), 0.5 * ( dy(u3)+dz(u2) )  ]   //
 macro grad(phi) [ dx(phi), dy(phi), dz(phi)]  //
 
 macro I1(u1,u2,u3) (div(u1,u2,u3) ) //
@@ -121,14 +123,14 @@ macro etaM  (alpha) ( MGrande*((alpha-ac)   +sqrt((alpha-ac)^2+1/MGrande2))) //
 macro detaM (alpha) ( MGrande*(1+ (alpha-ac)/sqrt((alpha-ac)^2+1/MGrande2))) //
 
 //=========================================================================================================
-//=========================================================================================================
+//====m==========y==u================v=====================C=============== = =============================
 problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) =                       //=====
     int3d(Th)(                                                                                      //=====
         //Bilinear [u],[v]                                                                          //=====
             (rho/dt^2)*[u1,u2,u3]' *[v1,v2,v3]                                                      //=====
             + lambda * div (u1,u2,u3) * div (v1,v2,v3)                                              //=====
             + muequiv * epsilon(u1,u2,u3)'* epsilon(v1,v2,v3)                                       //=====
-        // Blilinear alpha,w                                                                        //=====
+        // Bilinear alpha,w                                                                         //=====
             + (1/C/dt)*alpha*w                                                                      //=====
             + kappa * grad(alpha) '* grad(w)                                                        //=====
         )                                                                                           //=====
@@ -172,8 +174,8 @@ alphan = 0;
 //plot(u2o , cmm="Initial condition u2");
 time = 0;
 // Store min and max values of alpha
-ofstream ff("extremealpha.dat");
-{ofstream ff("datos.dat");ff<< ac << "\t" <<  MGrande << "\t" << MGrande2
+ofstream ff(prefix+"extremealpha.dat");
+{ofstream ff(prefix+"datos.dat");ff<< ac << "\t" <<  MGrande << "\t" << MGrande2
 <<  "\t" << mu0 <<  "\t" << eta1<< "\t" << eta2<<  endl;}
 k = 1;
 etaalpha=0;detaalpha=0;
@@ -200,29 +202,25 @@ for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
             etaalpha=etaM(alphanl);
             detaalpha=detaM(alphanl);
         } 
-        if (UsoEpsilonUpunto==1) {
-            muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) + 1/dt * etaalpha; // JSM:1 (version E(udot))
-        } else {
-            muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) +  etaalpha;       // JSM:1 (version E(u))
-        }
+		
         cxi1 =   gammar  * sqrt( I2(u1nl,u2nl,u3nl) ) * alphanl; 
         
         RHSalpha = 1/C/dt*alphan
             + mur * epsilon(u1nl,u2nl,u3nl)  '*  epsilon(u1nl,u2nl,u3nl) ;
     
         if (VersionDivEta==1) {
-            RHSalpha = RHSalpha+ gammar *   div(u1nl,u2nl,u3nl)                 * sqrt( I2(u1nl,u2nl,u3nl) );
+            RHSalpha = RHSalpha+ gammar *     div(u1nl,u2nl,u3nl)         * sqrt( I2(u1nl,u2nl,u3nl) );
         } else if (VersionDivEta==2) {
-            RHSalpha = RHSalpha+ gammar *   abs(div(u1nl,u2nl,u3nl))            * sqrt( I2(u1nl,u2nl,u3nl) );
+            RHSalpha = RHSalpha+ gammar * abs(div(u1nl,u2nl,u3nl))        * sqrt( I2(u1nl,u2nl,u3nl) );
         } else if (VersionDivEta==3) {
-            RHSalpha = RHSalpha+ gammar *   max(div(u1nl,u2nl,u3nl),0*u1nl)     * sqrt( I2(u1nl,u2nl,u3nl) );
+            RHSalpha = RHSalpha+ gammar * max(div(u1nl,u2nl,u3nl),0*u1nl) * sqrt( I2(u1nl,u2nl,u3nl) );
         } 
         if (UsoEpsilonUpunto==1) {                  // JSM:1 (version E(udot))
             muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) + 1/dt * etaalpha; 
-            RHSalpha = RHSalpha -  detaalpha* epsilon(u1nl,u2nl,u3nl)  '*  (epsilon(u1nl,u2nl,u3nl)-epsilon(u1n,u2n,u3n)) /dt;
+            RHSalpha = RHSalpha - detaalpha* epsilon(u1nl,u2nl,u3nl) '*  (epsilon(u1nl,u2nl,u3nl)-epsilon(u1n,u2n,u3n)) /dt;
         } else {
             muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(u1nl,u2nl,u3nl) ) +  etaalpha;       // JSM:1 (version E(u))
-            RHSalpha = RHSalpha -  detaalpha* epsilon(u1nl,u2nl,u3nl)  '*  epsilon(u1nl,u2nl,u3nl) ;            
+            RHSalpha = RHSalpha - detaalpha* epsilon(u1nl,u2nl,u3nl) '*  epsilon(u1nl,u2nl,u3nl) ;            
         }
     
         elasticity;
@@ -249,7 +247,7 @@ for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
     }
 
     {
-        ofstream ff("extremealpha.dat",append);
+        ofstream ff(prefix+"extremealpha.dat",append);
         ff<< time << "\t" <<  alpha[].min  << "\t" << alpha[].max  
         << "\t" <<  u3[].min  << "\t" << u3[].max  
         << "\t" << itnl 
@@ -274,7 +272,7 @@ for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
 
   // Save the solution in a vtk output.
     if(i-10*k == 0) {
-        savevtk("vtk/solution"+i+".vtk",Th,[u1,u2,u3],alpha);//'saves' vtk'file'for'each'iteratio
+        savevtk("vtk/"+prefix+"solution"+i+".vtk",Th,[u1,u2,u3],alpha);//'saves' vtk'file'for'each'iteratio
         k = k+1;
     };
 };

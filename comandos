@@ -1,0 +1,12 @@
+
+    4  echo "# Danos" >> README.md
+    5  git init
+    6  git add README.md
+    7  git commit -m "first commit"
+    8  git remote add origin https://github.com/JorgeDim/Danos.git
+    9  git push -u origin master
+
+
+ git add ElasticityDamage3D.edp
+   14  git commit -m "first commit" -a
+   15  git push -u origin master
