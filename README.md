@@ -4,8 +4,8 @@ Programa principal en FreeFem++
 
 Defaults.idp 
 ============
-Se usa para cambiar algunos datos para la ejecucion.
-Ejemplo:
+Se usa para cambiar algunos datos para la ejecucion.<br>
+Ejemplo:<br>
 VersionEta      =1;
 UsoEpsilonUpunto=0;
 VersionDivEta   =1;
