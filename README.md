@@ -6,9 +6,11 @@ Defaults.idp
 ============
 Se usa para cambiar algunos datos para la ejecucion.<br>
 Ejemplo:<br>
+<pre>
 VersionEta      =1;
 UsoEpsilonUpunto=0;
 VersionDivEta   =1;
+</pre>
 
 LanzaCalculos.sh
 ================
