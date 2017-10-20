@@ -22,6 +22,6 @@ La idea de este Script, es realizar 2 etapas:<br>
 	
 Cada vez que FreeFem se lanza, genera un log y archivos de resultados 
 que tienen un prefijo para identificarlo. Para más informacion, ver
-la linea 20 de ElasticityDamage3D.edp, donde se define la variable prefix
+la linea 20 de <tt>ElasticityDamage3D.edp</tt>, donde se define la variable prefix
 como:<pre>
 	string prefix=  ""+VersionEta+  UsoEpsilonUpunto+VersionDivEta+"_";</pre>
