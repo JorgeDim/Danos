@@ -26,9 +26,9 @@ la linea 20 de <tt>ElasticityDamage3D.edp</tt>, donde se define la variable pref
 como:<pre>
 	string prefix=  ""+VersionEta+  UsoEpsilonUpunto+VersionDivEta+"_";</pre>
     
-    Este programa está mas operativo (pero menos comprensible!!!)
+* Este programa está mas operativo (pero menos comprensible!!!)
     
-    Basta con definir un arreglo de prefijos a calcular
+Basta con definir un arreglo de prefijos a calcular
 y se lanza un for que hace todos los cálculos:
 
 <pre>
