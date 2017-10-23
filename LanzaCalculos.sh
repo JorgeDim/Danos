@@ -2,26 +2,26 @@
 
 version="new"
 casos=(
-   "0010"  # (0)eta=0       , (0)E(u),    (1)    div(u)    ,(0) alpha=0
-   "0011"  # (0)eta=0       , (0)E(u),    (1)    div(u)    ,(0) alpha=0
-#   "001"  # (0)eta=0       , (0)E(u),    (1)    div(u)
-#   "002"  # (0)eta=0       , (0)E(u),    (2)abs(div(u))
-#   "003"  # (0)eta=0       , (0)E(u),    (3)max(div(u),0)
-#   "011"  # (0)eta=0       , (1)E(udot), (1)    div(u)
-#   "012"  # (0)eta=0       , (1)E(udot), (2)abs(div(u))
-#   "013"  # (0)eta=0       , (1)E(udot), (3)max(div(u),0)
-#   "101"  # (1)eta=articulo, (0)E(u),    (1)    div(u)
+   "0020"  # (0)eta=0       , (0)E(u),    (1)    div(u)    ,(0) alpha=0
+#   "0011"  # (0)eta=0       , (0)E(u),    (1)    div(u)    ,(1) alpha evoluciona
+#   "0011"  # (0)eta=0       , (0)E(u),    (1)    div(u)
+#   "0021"  # (0)eta=0       , (0)E(u),    (2)abs(div(u))
+#   "0031"  # (0)eta=0       , (0)E(u),    (3)max(div(u),0)
+#   "0111"  # (0)eta=0       , (1)E(udot), (1)    div(u)
+#   "0121"  # (0)eta=0       , (1)E(udot), (2)abs(div(u))
+#   "0131"  # (0)eta=0       , (1)E(udot), (3)max(div(u),0)
+#   "1011"  # (1)eta=articulo, (0)E(u),    (1)    div(u)
 #   "1021"  # (1)eta=articulo, (0)E(u),    (2)abs(div(u))
-#   "103"  # (1)eta=articulo, (0)E(u),    (3)max(div(u),0)
-#   "111"  # (1)eta=articulo, (1)E(udot), (1)    div(u)
-#   "112"  # (1)eta=articulo, (1)E(udot), (2)abs(div(u))
-#   "113"  # (1)eta=articulo, (1)E(udot), (3)max(div(u),0)
-#   "201"  # (2)eta=MGrande , (0)E(u),    (1)    div(u)
-#   "202"  # (2)eta=MGrande , (0)E(u),    (2)abs(div(u))
-#   "203"  # (2)eta=MGrande , (0)E(u),    (3)max(div(u),0)
-#   "211"  # (2)eta=MGrande , (1)E(udot), (1)    div(u)
-#   "212"  # (2)eta=MGrande , (1)E(udot), (2)abs(div(u))
-#   "213"  # (2)eta=MGrande , (1)E(udot), (3)max(div(u),0)
+#   "1031"  # (1)eta=articulo, (0)E(u),    (3)max(div(u),0)
+#   "1111"  # (1)eta=articulo, (1)E(udot), (1)    div(u)
+#   "1121"  # (1)eta=articulo, (1)E(udot), (2)abs(div(u))
+#   "1131"  # (1)eta=articulo, (1)E(udot), (3)max(div(u),0)
+#   "2011"  # (2)eta=MGrande , (0)E(u),    (1)    div(u)
+#   "2021"  # (2)eta=MGrande , (0)E(u),    (2)abs(div(u))
+#   "2031"  # (2)eta=MGrande , (0)E(u),    (3)max(div(u),0)
+#   "2111"  # (2)eta=MGrande , (1)E(udot), (1)    div(u)
+#   "2121"  # (2)eta=MGrande , (1)E(udot), (2)abs(div(u))
+#   "2131"  # (2)eta=MGrande , (1)E(udot), (3)max(div(u),0)
 )
 
 case $version in

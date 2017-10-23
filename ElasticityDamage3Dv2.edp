@@ -15,7 +15,7 @@ int VersionDivEta=1;    //1: Se usa termino: RHSalpha+= gammar *    div(u1nl,u2n
                         //3: Se usa término: RHSalpha+= gammar *    max(div(u1nl,u2nl,u3nl),0*u1nl) * sqrt( I2(u1nl,u2nl,u3nl) )
 int UsoDalphaDt=0;                         
 include "Defaults.idp";	
-string prefix=	""+VersionEta+	UsoEpsilonUpunto+VersionDivEta+UsoDalphaDt+"_";			
+string prefix=	"v2-"+VersionEta+	UsoEpsilonUpunto+VersionDivEta+UsoDalphaDt+"_";			
 // Define parameters for model.
 //-----------------------------------------
 // Model parameters.
@@ -46,7 +46,7 @@ C = 1e-6;
 kappa = 1e-9;
 //eta1 = 0; eta2 = 0;
 
-real dt = 1e-2 ;
+real dt = 1e-3 ; //Maximo 1e-2 (2e-2==> explosion)
 real time ;
 real x0, x1, y0, y1;
 // set values of the corner of a square.
@@ -90,9 +90,10 @@ mesh3 Th = buildlayers ( Th2, nn, zbound = [ zmin, zmax] ,
 // Define the Finite Elment (FE) space
 fespace Vh (Th,P1);
 // Define elements of the FE space 
-Vh  u1,u2,u3,u1n,u2n,u3n, u1nl,u2nl,u3nl,alphanl, u1nl2,u2nl2,u3nl2,alphanl2,verr,mRHS,
-    u1o,u2o,u3o,v1,v2,v3,alpha, muequiv,
-    alphan , w , fx , fy , fz  , 
+Vh  u1,u2,u3,ud1,ud2,ud3,u1n,u2n,u3n, u1nl,u2nl,u3nl,ud1nl,ud2nl,ud3nl,alphanl, 
+    u1nl2,u2nl2,u3nl2,alphanl2,verr,mRHS,
+    ud1n,ud2n,ud3n,v1,v2,v3,vd1,vd2,vd3,alpha, muequiv,
+    alphan , w , fx , fy , fz  ,  fdx , fdy , fdz  , 
     u1i , u2i, u3i , fd1 , RHSalpha , 
     cxi1 , cxi2 , cxRHSalpha , etaalpha ,detaalpha,
     sigmaY ,
@@ -125,12 +126,14 @@ macro detaM (alpha) ( MGrande*(1+ (alpha-ac)/sqrt((alpha-ac)^2+1/MGrande2))) //
 
 //=========================================================================================================
 //====m==========y==u================v=====================C=============== = =============================
-problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) =                       //=====
+problem elasticity (u1,u2,u3,ud1,ud2,ud3,alpha,  v1,v2,v3,vd1,vd2,vd3,w,  solver = LU,   eps=1e-15) =                       //=====
     int3d(Th)(                                                                                      //=====
-        //Bilinear [u],[v]                                                                          //=====
-            (rho/dt^2)*[u1,u2,u3]' *[v1,v2,v3]                                                      //=====
-            + lambda * div (u1,u2,u3) * div (v1,v2,v3)                                              //=====
-            + muequiv * epsilon(u1,u2,u3)'* epsilon(v1,v2,v3)                                       //=====
+        //Bilinear ...,[vd]                                                                        //=====
+            (rho/dt)*[ud1,ud2,ud3]' *[vd1,vd2,vd3]  
+            + lambda * div (u1,u2,u3) * div (vd1,vd2,vd3)                                                     //=====
+            + muequiv * epsilon(u1,u2,u3)'* epsilon(vd1,vd2,vd3)                                             //=====
+        //Bilinear ...[v]                                                                              //=====
+            +(rho/dt)*[u1,u2,u3]' *[v1,v2,v3]                                          //=====
         // Bilinear alpha,w                                                                         //=====
             + (1/C/dt)*alpha*w                                                                      //=====
             + kappa * grad(alpha) '* grad(w)                                                        //=====
@@ -139,9 +142,9 @@ problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) =   
 //Right hand side (pasa del lado Izquierdo con menos!!!)                                            //=====
     - int3d(Th)(                                                                                    //=====
         // RHS [u]                                                                                  //=====
-            [fx,fy,fz]' * [v1,v2,v3]                                                                //=====
-            +   UsoEpsilonUpunto * 1/dt * etaalpha *  epsilon(u1n,u2n,u3n)'* epsilon(v1,v2,v3)      //=====
-            +   cxi1 * div(v1,v2,v3)                                                                //=====
+            [fdx,fdy,fdz]' * [vd1,vd2,vd3]                                                                //=====
+            +[fx,fy,fz]' * [v1,v2,v3]                                                                //=====
+            +   cxi1 * div(vd1,vd2,vd3)                                                                //=====
         // RHS alpha                                                                                //=====
             +   UsoDalphaDt*RHSalpha *w                                                                         //=====
         )                                                                                           //=====
@@ -149,6 +152,7 @@ problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) =   
 //Condiciones de borde                                                                              //=====
 //           + on (1, 2, 3, 4, alpha = 0 )                        //Dirichlet b.c                   //=====
              + on (1,u2 = 0) + on(2,u1 = 0) + on( 3, u3 = 0)                                        //=====
+             + on (1,ud2 = 0) + on(2,ud1 = 0) + on( 3, ud3 = 0)                                        //=====
 ; //end: ploblem elasticity                                                                         //=====
 //=========================================================================================================
 //=========================================================================================================
@@ -161,14 +165,14 @@ problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) =   
 // Initial condition
 
 //u1o = 0.3 * exp(-30*( (x)^2 + (y)^2 ) );
-u1o = 0;
-u1n = u1o + dt * 0;
+u1n = 0;
+ud1n = 0;
 
-u2o = 0;
-u2n = u2o + dt * 0;
+u2n = 0;
+ud2n = 0;
 
-u3o = 0; 
-u3n = u3o + dt * 0;
+u3n = 0; 
+ud3n = 0;
 
 alphan = 0;
 //plot(u1o , cmm="Initial condition u1");
@@ -184,12 +188,17 @@ for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
 {
 
     // Right hand side for the displacement 
-    fx =                     (2*u1n- u1o ) * rho /dt^2 ;
-    fy =                     (2*u2n- u2o ) * rho /dt^2 ;
-    fz =  -Cgravedad * rho + (2*u3n- u3o ) * rho /dt^2 ;
+    fdx =                     ud1n*rho/dt;
+    fdy =                     ud2n*rho/dt;
+    fdz =  -Cgravedad * rho + ud3n*rho/dt;
+    fx =   ud1n*rho + u1n*rho/dt;
+    fy =   ud2n*rho + u2n*rho/dt;
+    fz =   ud3n*rho + u3n*rho/dt;
+
 
    // Non-linear terms are implemented by fixed-point iterations (u1nl...alphanl)
     u1nl=u1n;u2nl=u2n;u3nl=u3n;
+    ud1nl=ud1n;ud2nl=ud2n;ud3nl=ud3n;
     alphanl=alphan;
     real errnl=1,errnl2=10,relaj=1; itnl=0;
     while ((errnl>1e-8 || itnl<2)&& itnl<50 ) {
@@ -227,6 +236,7 @@ for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
         elasticity;
         
         verr=abs(u1-u1nl)+abs(u2-u2nl)+abs(u3-u3nl)+abs(alpha-alphanl);
+        verr=verr+abs(ud1-ud1nl)+abs(ud2-ud2nl)+abs(ud3-ud3nl);
         errnl=verr[].max;
         cout << " errnl = "<< errnl << " errnl2 = "<< errnl2 << " relaj = "<< relaj <<endl; 
         
@@ -244,6 +254,8 @@ for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
         }
         u1nl2=u1nl;u2nl2=u2nl;u3nl2=u3nl;alphanl2=alphanl;
         u1nl=u1nl+relaj*(u1-u1nl);u2nl=u2nl+relaj*(u2-u2nl);u3nl=u3nl+relaj*(u3-u3nl);alphanl=alphanl+relaj*(alpha-alphanl);
+        ud1nl=ud1nl+relaj*(ud1-ud1nl);ud2nl=ud2nl+relaj*(ud2-ud2nl);
+        ud3nl=ud3nl+relaj*(ud3-ud3nl);
         errnl2=errnl;
     }
 
@@ -256,16 +268,9 @@ for ( int i = 0; i <= floor(tEnd/dt + dt) ; i++)
         <<  endl;
     }
    // Update the solution associated to the current time level.
-   u1o = u1n ;
-   u1n = u1 ;       
-
-   u2o = u2n ;
-   u2n = u2 ;    
-
-   u3o = u3n ;
-   u3n = u3 ;    
-
-
+   u1n = u1 ; ud1n = ud1 ;   
+   u2n = u2 ; ud2n = ud2 ;  
+   u3n = u3 ; ud3n = ud3 ;
    alphan = alpha ;
  
    time = time + dt; 

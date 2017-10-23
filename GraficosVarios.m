@@ -1,12 +1,13 @@
 clear;
 prefijos={...
-     '0010' ...% (0)eta=0       , (0)E(u),    (1)    div(u)
+...%     '0010' ...% (0)eta=0       , (0)E(u),    (1)    div(u) ,(0) alpha=0
 ...% '002' ...% (0)eta=0       , (0)E(u),    (2)abs(div(u))
 ...% '003' ...% (0)eta=0       , (0)E(u),    (3)max(div(u),0)
 ...% '011' ...% (0)eta=0       , (1)E(udot), (1)    div(u)
 ...% '012' ...% (0)eta=0       , (1)E(udot), (2)abs(div(u))
 ...% '013' ...% (0)eta=0       , (1)E(udot), (3)max(div(u),0)
-...%  '101' ...% (1)eta=articulo, (0)E(u),    (1)    div(u)
+     'v2-0020' ...% (0)eta=0       , (0)E(u),    (1)    div(u) ,(1) alpha evoluciona
+   '0010' ...% (1)eta=articulo, (0)E(u),    (1)    div(u),(0) alpha=0
 ...% '102' ...% (1)eta=articulo, (0)E(u),    (2)abs(div(u))
 ...% '103' ...% (1)eta=articulo, (0)E(u),    (3)max(div(u),0)
 ...% '111' ...% (1)eta=articulo, (1)E(udot), (1)    div(u)
@@ -38,9 +39,9 @@ for i=1:np
     ymax=max([ymax,d{i}(end,2),d{i}(end,3)]);
     plot(dd(:,1), dd(:,1)*0+ac{i},'r','Linewidth',2)
     if i==1
-        plot(dd(:,1)+i/1000, dd(:,2:3))
+        plot(dd(:,1)+i/1000, dd(:,2:3),'.-')
     else
-        plot(dd(:,1)+i/1000, dd(:,2:3),'+')
+        plot(dd(:,1)+i/1000, dd(:,2:3),'.')
     end
 end
 title('Min, max \alpha(t)')
@@ -62,9 +63,9 @@ for i=1:np
     ymax=max([ymax;d{i}(:,4);d{i}(:,5)]);
     ymin=min([ymin;d{i}(:,4);d{i}(:,5)]);
     if i==1
-        plot(dd(:,1)+i/1000, dd(:,4:5))
+        plot(dd(:,1), dd(:,4:5),'.')
     else
-        plot(dd(:,1)+i/1000, dd(:,4:5),'+')
+        plot(dd(:,1), dd(:,4:5),'-')
     end
 end
 title('Min, max z(t)')
@@ -80,9 +81,9 @@ for i=1:np
     ymax=max([ymax;d{i}(:,6)]);
     ymin=min([ymin;d{i}(:,6)]);
     if i==1
-        plot(d{i}(:,1), d{i}(:,6),'.-')
+        plot(d{i}(:,1), d{i}(:,6),'-')
     else
-        plot(d{i}(:,1), d{i}(:,6),'+-')
+        plot(d{i}(:,1), d{i}(:,6),'.-')
     end
 end
 grid on
@@ -97,9 +98,9 @@ for i=1:np
     ymax=max([ymax;d{i}(:,7)]);
     ymin=min([ymin;d{i}(:,7)]);
     if i==1
-        plot(d{i}(:,1), d{i}(:,7),'.-')
+        plot(d{i}(:,1), d{i}(:,7),'-')
     else
-        plot(d{i}(:,1), d{i}(:,7),'+-')
+        plot(d{i}(:,1), d{i}(:,7),'.-')
     end
 end
 grid on
