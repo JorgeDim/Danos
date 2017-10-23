@@ -13,8 +13,9 @@ int UsoEpsilonUpunto=1; //1: Se usa el modelo con el término \eta(\alpha)*E(u):
 int VersionDivEta=1;    //1: Se usa termino: RHSalpha+= gammar *    div(u1nl,u2nl,u3nl)             * sqrt( I2(u1nl,u2nl,u3nl) );
                         //2: Se usa término: RHSalpha+= gammar *    abs(div(u1nl,u2nl,u3nl))        * sqrt( I2(u1nl,u2nl,u3nl) );
                         //3: Se usa término: RHSalpha+= gammar *    max(div(u1nl,u2nl,u3nl),0*u1nl) * sqrt( I2(u1nl,u2nl,u3nl) )
+int UsoDalphaDt=0;                         
 include "Defaults.idp";	
-string prefix=	""+VersionEta+	UsoEpsilonUpunto+VersionDivEta+"_";			
+string prefix=	""+VersionEta+	UsoEpsilonUpunto+VersionDivEta+UsoDalphaDt+"_";			
 // Define parameters for model.
 //-----------------------------------------
 // Model parameters.
@@ -142,7 +143,7 @@ problem elasticity (u1,u2,u3,alpha,  v1,v2,v3,w,  solver = CG,   eps=1e-15) =   
             +   UsoEpsilonUpunto * 1/dt * etaalpha *  epsilon(u1n,u2n,u3n)'* epsilon(v1,v2,v3)      //=====
             +   cxi1 * div(v1,v2,v3)                                                                //=====
         // RHS alpha                                                                                //=====
-            +   RHSalpha *w                                                                         //=====
+            +   UsoDalphaDt*RHSalpha *w                                                                         //=====
         )                                                                                           //=====
                                                                                                     //=====
 //Condiciones de borde                                                                              //=====

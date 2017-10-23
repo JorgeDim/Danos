@@ -1,21 +1,21 @@
 clear;
 prefijos={...
-...% '001' ...% (0)eta=0       , (0)E(u),    (1)    div(u)
+     '0010' ...% (0)eta=0       , (0)E(u),    (1)    div(u)
 ...% '002' ...% (0)eta=0       , (0)E(u),    (2)abs(div(u))
 ...% '003' ...% (0)eta=0       , (0)E(u),    (3)max(div(u),0)
 ...% '011' ...% (0)eta=0       , (1)E(udot), (1)    div(u)
 ...% '012' ...% (0)eta=0       , (1)E(udot), (2)abs(div(u))
 ...% '013' ...% (0)eta=0       , (1)E(udot), (3)max(div(u),0)
-...% '101' ...% (1)eta=articulo, (0)E(u),    (1)    div(u)
+...%  '101' ...% (1)eta=articulo, (0)E(u),    (1)    div(u)
 ...% '102' ...% (1)eta=articulo, (0)E(u),    (2)abs(div(u))
 ...% '103' ...% (1)eta=articulo, (0)E(u),    (3)max(div(u),0)
 ...% '111' ...% (1)eta=articulo, (1)E(udot), (1)    div(u)
 ...% '112' ...% (1)eta=articulo, (1)E(udot), (2)abs(div(u))
 ...% '113' ...% (1)eta=articulo, (1)E(udot), (3)max(div(u),0)
 ...% '201' ...% (2)eta=MGrande , (0)E(u),    (1)    div(u)
-     '202' ...% (2)eta=MGrande , (0)E(u),    (2)abs(div(u))
+...% '202' ...% (2)eta=MGrande , (0)E(u),    (2)abs(div(u))
 ...% '203' ...% (2)eta=MGrande , (0)E(u),    (3)max(div(u),0)
-     '211' ...% (2)eta=MGrande , (1)E(udot), (1)    div(u)
+...% '211' ...% (2)eta=MGrande , (1)E(udot), (1)    div(u)
 ...% '212' ...% (2)eta=MGrande , (1)E(udot), (2)abs(div(u))
 ...% '213' ...% (2)eta=MGrande , (1)E(udot), (3)max(div(u),0)
     };
@@ -46,7 +46,11 @@ end
 title('Min, max \alpha(t)')
 xlabel('Time');
 grid on
+if (ymax>0)
 axis([0 Tmax 0 ymax*1.1]);
+else
+    axis([0 Tmax -.1 .1]);
+end
 
 sp2=subplot(4,2,[3 4]);%figure(2);clf;
 hold on

@@ -2,33 +2,36 @@
 
 version="new"
 casos=(
+   "0010"  # (0)eta=0       , (0)E(u),    (1)    div(u)    ,(0) alpha=0
+   "0011"  # (0)eta=0       , (0)E(u),    (1)    div(u)    ,(0) alpha=0
 #   "001"  # (0)eta=0       , (0)E(u),    (1)    div(u)
 #   "002"  # (0)eta=0       , (0)E(u),    (2)abs(div(u))
-   "003"  # (0)eta=0       , (0)E(u),    (3)max(div(u),0)
+#   "003"  # (0)eta=0       , (0)E(u),    (3)max(div(u),0)
 #   "011"  # (0)eta=0       , (1)E(udot), (1)    div(u)
 #   "012"  # (0)eta=0       , (1)E(udot), (2)abs(div(u))
-   "013"  # (0)eta=0       , (1)E(udot), (3)max(div(u),0)
+#   "013"  # (0)eta=0       , (1)E(udot), (3)max(div(u),0)
 #   "101"  # (1)eta=articulo, (0)E(u),    (1)    div(u)
-#   "102"  # (1)eta=articulo, (0)E(u),    (2)abs(div(u))
-   "103"  # (1)eta=articulo, (0)E(u),    (3)max(div(u),0)
+#   "1021"  # (1)eta=articulo, (0)E(u),    (2)abs(div(u))
+#   "103"  # (1)eta=articulo, (0)E(u),    (3)max(div(u),0)
 #   "111"  # (1)eta=articulo, (1)E(udot), (1)    div(u)
 #   "112"  # (1)eta=articulo, (1)E(udot), (2)abs(div(u))
-   "113"  # (1)eta=articulo, (1)E(udot), (3)max(div(u),0)
-   "201"  # (2)eta=MGrande , (0)E(u),    (1)    div(u)
+#   "113"  # (1)eta=articulo, (1)E(udot), (3)max(div(u),0)
+#   "201"  # (2)eta=MGrande , (0)E(u),    (1)    div(u)
 #   "202"  # (2)eta=MGrande , (0)E(u),    (2)abs(div(u))
-   "203"  # (2)eta=MGrande , (0)E(u),    (3)max(div(u),0)
-   "211"  # (2)eta=MGrande , (1)E(udot), (1)    div(u)
+#   "203"  # (2)eta=MGrande , (0)E(u),    (3)max(div(u),0)
+#   "211"  # (2)eta=MGrande , (1)E(udot), (1)    div(u)
 #   "212"  # (2)eta=MGrande , (1)E(udot), (2)abs(div(u))
-   "213"  # (2)eta=MGrande , (1)E(udot), (3)max(div(u),0)
+#   "213"  # (2)eta=MGrande , (1)E(udot), (3)max(div(u),0)
 )
 
 case $version in
     "new")
         for i in "${casos[@]}"
         do
-            echo $i
+            echo Calculando caso $i
             echo $i|
-                sed -e 's/^\(.\)\(.\)\(.\)/VersionEta =\1;UsoEpsilonUpunto =\2;VersionDivEta =\3;/g'>Defaults.idp
+                sed -e \
+                's/^\(.\)\(.\)\(.\)\(.\)/VersionEta =\1;UsoEpsilonUpunto =\2;VersionDivEta =\3;UsoDalphaDt=\4;/g'>Defaults.idp
             cat Defaults.idp
             echo 'FreeFem++ ElasticityDamage3D.edp > '$i'_salida.log &'
             FreeFem++ ElasticityDamage3D.edp > ${i}_salida.log &
