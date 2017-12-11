@@ -5,20 +5,19 @@ from __future__ import print_function
 from fenics import *
 from mshr import *
 import numpy as np
-
 import matplotlib.pyplot as plt
 
 
-VersionEta=2       #0: no hay eta, 
+VersionEta=2              #0: no hay eta, 
                         #1: Se usa la función eta(alpha) del articulo. 
                         #2: Se usa la función eta(alpha) propuesta por JSM
 UsoEpsilonUpunto=0 #1: Se usa el modelo con el término \eta(\alpha)*E(u):E(udot). 
                         #0: Se usa E(u) en lugar de E(udot) en dicha parte del modelo "propuesto por JSM"
-VersionDivEta=1    #1: Se usa termino: RHSalpha+= gammar *    div(u1nl,u2nl,u3nl)             * sqrt( I2(u1nl,u2nl,u3nl) );
+VersionDivEta=2    #1: Se usa termino: RHSalpha+= gammar *    div(u1nl,u2nl,u3nl)             * sqrt( I2(u1nl,u2nl,u3nl) );
                         #2: Se usa término: RHSalpha+= gammar *    abs(div(u1nl,u2nl,u3nl))        * sqrt( I2(u1nl,u2nl,u3nl) );
                         #3: Se usa término: RHSalpha+= gammar *    max(div(u1nl,u2nl,u3nl),0*u1nl) * sqrt( I2(u1nl,u2nl,u3nl) )
-UsoDalphaDt=1;                         
-import Defaults	
+UsoDalphaDt=0;                         
+#runfile("Defaults.py")
 prefix=	""+`VersionEta`+`UsoEpsilonUpunto`+`VersionDivEta`+`UsoDalphaDt`+"_";			
 
 print('prefix=',prefix)
@@ -34,7 +33,7 @@ E  = mu0 *( 3 * lambda_ + 2 * mu0) / (lambda_ + mu0);
 nu = lambda_ /  (2 * ( lambda_ + mu0)); 
 tEnd = 10;
 Cgravedad = 9.8e0;
-xi0 = -0.8;     
+xi0 = -0.008;     
 
 
 gammar = 35000 * MP; 
@@ -45,7 +44,7 @@ eta1 = 1e-2;
 eta2 = 1e-1;
 
 
-dt = 1e-2 ;
+dt = 1e-3 ;
 x0 = -100;
 y0 = -100;
 z0 = -100;
@@ -62,14 +61,21 @@ Vu = FunctionSpace(mesh, P1v)
 Vua = FunctionSpace(mesh, element)
 Va= FunctionSpace(mesh, P1e)
 
+alphanl  = Function(Va)
+Fmuequiv  = Function(Va)
+Fetaalpha = Function(Va)
+Fcxi1     = Function(Va)
+FRHSalpha = Function(Va)
+un       = Function(Vu)
+unl      = Function(Vu)
+Fuerza      = Function(Vu)
+
 
 ##################
 def epsilon(u):
     return 0.5*(nabla_grad(u) + nabla_grad(u).T)
-
 def sigma0(u):
-    return lambda_*nabla_div(u)*Identity(d) + muequiv*epsilon(u)
-
+    return lambda_*div(u)*Identity(dim) + Fmuequiv*epsilon(u)
 ac =0.71;MGrande=500*mu0;MGrande2=(MGrande/(1e-1*mu0))**2;
 def eta(alpha) :
     return eta1 + eta2 / (ac - alpha) 
@@ -85,16 +91,15 @@ def I2(u) :
     return inner(epsilon (u),epsilon(u))
 def Xi(u) :
     return I1(u) /( sqrt(I2(u)) + 1e-9) 
-
 def Max(a, b): return (a+b+abs(a-b))/Constant(2)
 ##################    
-tol = 1E-2
+tol = 1E-1
 def lados(x, on_boundary):
-    return on_boundary and (near(x[0],x0,1) or near(x[0],x1,1))
+    return on_boundary and (near(x[0],x0,tol) or near(x[0],x1,tol))
 def fondo(x, on_boundary):
-    return on_boundary and (near(x[2],z0,1) )
+    return on_boundary and (near(x[2],z0,tol) )
 def frentefondo(x, on_boundary):
-    return on_boundary and (near(x[1],y0,1) or near(x[1],y1,1))
+    return on_boundary and (near(x[1],y0,tol) or near(x[1],y1,tol))
 
 bc1 = DirichletBC(Vua.sub(0).sub(0), Constant((0)), lados)
 bc2 = DirichletBC(Vua.sub(0).sub(2), Constant((0)), fondo)
@@ -106,61 +111,55 @@ ZeroVector = Expression(('0','0','0'),degree=1)
 ZeroEscalar= Expression('0',degree=1)
 
 
-muequiv  = Function(Va)
-Fetaalpha = Function(Va)
-Fcxi1     = Function(Va)
-FRHSalpha = Function(Va)
-un       = Function(Vu)
-unl      = Function(Vu)
-
 v,w = TestFunctions(Vua)
-u, alpha  = TrialFunctions(Vua)
-d = u.geometric_dimension()  # space dimension
-f = Expression(('0','0','0'),degree=1)
-f=project(f,Vu)
+u, alpha=TrialFunctions(Vua)
+dim = u.geometric_dimension()  # space dimension
+
 T = Constant((0, 0, 0))
-a = (rho/dt/dt)*inner(u,v)*dx + inner(sigma0(u), epsilon(v))*dx +   \
+Bilineal = (rho/dt/dt)*inner(u,v)*dx + inner(sigma0(u), epsilon(v))*dx +   \
     +(1/C/dt)*alpha*w *dx + inner(kappa*grad(alpha),grad(w))*dx 
-L1 = dot(f, v)*dx + dot(T, v)*ds 
-L3 = Fcxi1 * nabla_div(v) *dx
+L1 = dot(Fuerza, v)*dx + dot(T, v)*ds 
+L2 = Fcxi1 * nabla_div(v) *dx
+L3=0
+if UsoEpsilonUpunto != 0:
+    L3 = (1/dt*Fetaalpha)*inner(epsilon(un),epsilon(v))*dx 
 L4=0
-L2=0
 if UsoDalphaDt!=0:
     L4 = FRHSalpha *w*dx 
-if UsoEpsilonUpunto != 0:
-    L2 = (1/dt*Fetaalpha)*inner(epsilon(u_n),epsilon(v))*dx 
-L=L1+L2+L3+L4
+Lineal=L1+L2+L3+L4
+
         
 
 # Initial condition
 
 
 uo = interpolate(ZeroVector, Vu)
-un = uo + dt * Constant((0, 0, 0))
-un = project(un, Vu)
-
+un.assign(project(uo + dt * Constant((0, 0, 0)), Vu))
 alphan = project(ZeroEscalar, Va)
-time = 0
 
-        
-unl = interpolate(ZeroVector, Vu)
-alphanl = interpolate(ZeroEscalar, Va)
-    
+time = 0
 k = 1
 etaalpha=0;detaalpha=0
 nt = int(tEnd/dt)
 
-zmaxdet=[];
-for i in range(0,nt*0+200):
-    print("Iteración ",i,"\n=================")
+zmaxdet=[0];
+alphamax=[0];
+alphamin=[0];
+tiempos=[0];
+#%%  Iteraciones Temporales
+for i in range(0,nt):
+    print("\n=================\nIteración ",i,"\n=================")
+    
+    time = time + dt; 
+    print(" time = ",time," dt = ",dt)
+    
     # Non-linear terms are implemented by fixed-point iterations (u1nl...alphanl)
     
     fv = Constant((0, 0, -rho*Cgravedad)) + (2*un-uo)*rho /dt/dt
     fv=project(fv,Vu)
-    f.assign(fv)  ## Esta es la funcion usada en la FV
+    Fuerza.assign(fv)  ## Esta es la funcion usada en la FV
 
-    tmp=project(f,Vu)
-    u_1_, u_2_, u_3_ = tmp.split(deepcopy=True)
+    u_1_, u_2_, u_3_ = Fuerza.split(deepcopy=True)
     print("f3_min=",u_3_.vector().min(),"max=",u_3_.vector().max())
     
     unl.assign(un)
@@ -178,29 +177,28 @@ for i in range(0,nt*0+200):
 
 
         cxi1 =   gammar  * sqrt( I2(unl) ) * alphanl; 
-        RHSalpha= 1/C/dt*alphan + mur * I2(unl) 
         
-        tmp=project(I2(unl) ,Va)
-        print("mur=",mur," I2(unl) _min=",tmp.vector().min(),"max=",tmp.vector().max())
-        tmp=project(RHSalpha,Va)
-        print("RHSalpha1_min=",tmp.vector().min(),"max=",tmp.vector().max())
-        
+        #tmp=project(I2(unl) ,Va)
+        #print("mur=",mur," I2(unl) _min=",tmp.vector().min(),"max=",tmp.vector().max())
+        #tmp=project(RHSalpha,Va)
+        #print("RHSalpha1_min=",tmp.vector().min(),"max=",tmp.vector().max())
         #print('RHSalpha)=',RHSalpha)
+        
+    
+        RHSalpha= 1/C/dt*alphan + mur * I2(unl) 
         if (VersionDivEta==1):
             RHSalpha = (RHSalpha+ gammar*    div(unl)   * sqrt(I2(unl)))*Max(Xi(unl)-xi0,0)/(abs(Xi(unl) - xi0)+1e-10 )
         elif (VersionDivEta==2) :
             RHSalpha = RHSalpha+ gammar *abs(div(unl))  * sqrt(I2(unl));
         elif (VersionDivEta==3) :
             RHSalpha = RHSalpha+ gammar *Max(div(unl),0)* sqrt(I2(unl));
-        
         if (UsoEpsilonUpunto==1) :
             muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(unl) ) + 1/dt * etaalpha
             RHSalpha = RHSalpha - detaalpha* inner(epsilon(unl), epsilon(unl-un)) /dt
         else :
             muequiv= 2.0*mu0  - alphanl*(2*mur + gammar*Xi(unl) ) +  etaalpha
             RHSalpha = RHSalpha - detaalpha* inner(epsilon(unl),epsilon(unl))             
-        
-    
+
 
         tmp=project(muequiv,Va)
         print("muequiv_min=",tmp.vector().min(),"max=",tmp.vector().max())
@@ -208,15 +206,13 @@ for i in range(0,nt*0+200):
         print("RHSalpha_min=",tmp.vector().min(),"max=",tmp.vector().max())
         # Compute solution
         
-        RHSalpha=project(RHSalpha,Va)
-        FRHSalpha.assign(RHSalpha)
-        etaalpha=project(etaalpha,Va)
-        Fetaalpha.assign(etaalpha)
-        cxi1=project(cxi1,Va)
-        Fcxi1.assign(cxi1)
+        FRHSalpha.assign(project(RHSalpha,Va))
+        Fetaalpha.assign(project(etaalpha,Va))
+        Fcxi1.assign(project(cxi1,Va))
+        Fmuequiv.assign(project(muequiv,Va))
         
         ua = Function(Vua)
-        solve(a == L, ua, bc)
+        solve(Bilineal == Lineal, ua, bc)
         u,alpha=ua.split(deepcopy=True)
         u_1_, u_2_, u_3_ = u.split(deepcopy=True)
         
@@ -241,16 +237,27 @@ for i in range(0,nt*0+200):
     
         
     zmaxdet.append(u_3_.vector().min());
+    alphamax .append(alpha.vector().max());
+    alphamin .append(alpha.vector().min());
+    tiempos.append(time);
     
-    print("zmaxdet=",zmaxdet)
+    #print("zmaxdet=",zmaxdet)
+    plt.figure(1,figsize=(20, 10))
     plt.clf()
-    plt.plot(zmaxdet, linewidth=2)
-
+    
+    plt.subplot(211)
+    plt.plot(tiempos,zmaxdet, 'bo-')
+    plt.ylabel('Zmin')
+    plt.grid()
+    plt.subplot(212)
+    plt.plot(tiempos,alphamin, 'r.-')
+    plt.plot(tiempos,alphamax, 'b.-')
+    plt.ylabel('Alpha Min/Max')
+    plt.xlabel('Tiempo')
+    plt.grid()
     plt.pause(0.005)
     #plt.show()
 
-    time = time + dt; 
-    print(" time = ",time," dt = ",dt)
 
 
 print(epsilon(u))
