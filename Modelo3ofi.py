@@ -19,6 +19,7 @@ Fcxi1     = Function(Va)
 FRHSalpha = Function(Va)
 FnEtaPrima= Function(Va)
 up       = Function(Vu)
+u       = Function(Vu)			## No es parte de la FV
 u_nl      = Function(Vu)
 udp       = Function(Vu)
 ud_nl      = Function(Vu)
@@ -29,6 +30,7 @@ execfile("Macros.py")
 execfile("Malla100x100x100_BC.py")
 
 
+
 ZeroVector = Constant((0,0,0))
 ZeroEscalar= Constant(0)
 
@@ -36,8 +38,6 @@ ZeroEscalar= Constant(0)
 
 execfile("FV.py")
 
-u       = Function(Vu)	
-alpha  = Function(Va)	
         
 ####################Problema Estacionario ###################
     
@@ -48,15 +48,130 @@ alpha_nl.assign(project(ZeroEscalar, Va))
 
 #%%
 
+errnl=1;errnl2=10;relaj=1;itnl=0
+while ((errnl>1e-8 or itnl<2) and itnl<5000 ) :
+    itnl+=1
+    print "itnl = ",itnl
+    if (VersionEta==1) :
+        print 'VersionEta==1'
+        etaalpha=eta(alpha_nl);
+        detaalpha=deta(alpha_nl);
+    elif (VersionEta==2) :
+        print 'VersionEta==2'
+        etaalpha=etaM(alpha_nl);
+        detaalpha=detaM(alpha_nl);
 
-z=Expression('x[2]',degree=1)
-V0 = FunctionSpace(mesh, 'P', 1)
-z=project(z,V0)
-plot(z)
+### FnEtaPrima 
+    ArrAlpha=alpha_nl.vector().array()
+    if (VersionEta==1) :
+        Arrdetaalpha=deta(ArrAlpha);
+    elif (VersionEta==2) :
+        Arrdetaalpha=detaM(ArrAlpha);
+    ArrEtaPrima=0*Arrdetaalpha;
+    if (UsoEpsilonUpunto==0) :
+        tmp=project(inner(epsilon(u_nl),epsilon(u_nl)),Va)
+        ArrEtaPrima = Arrdetaalpha* tmp.vector().array()/(abs(ArrAlpha)+1e-3)  
+        ArrEtaPrima = Arrdetaalpha/(abs(ArrAlpha)+1e-3)  
+    FnEtaPrima.vector()[:]=ArrEtaPrima
+    print "ArrAlpha    :   min,max=\033[6;30;42m",ArrAlpha.min(),",",ArrAlpha.max(), '\033[0m'
+    print "Arrdetaalpha:   min,max=\033[6;30;42m",Arrdetaalpha.min(),",",Arrdetaalpha.max(), '\033[0m'
+    print "ArrEtaPrima :   min,max=\033[6;30;42m",ArrEtaPrima.min(),",",ArrEtaPrima.max(), '\033[0m'
+    print "FnEtaPrima  : min,max=",FnEtaPrima.vector().min(),",",FnEtaPrima.vector().max()
+##################
 
-primeravez=1
-errnl_arr=[]
-execfile("iteracionNL.py")
+    u_1_, u_2_, u_3_ = Fuerza.split(deepcopy=True)
+    print("f3 : min=",u_3_.vector().min(),"max=",u_3_.vector().max())
+    
+    cxi1 =   gammar  * sqrt( I2(u_nl) ) * alpha_nl; 
+    
+
+    RHSalpha=  mur * I2(u_nl) 
+    if (VersionDivEta==1):
+        RHSalpha = (RHSalpha+ gammar*    div(u_nl)   * sqrt(I2(u_nl)))*Max(Xi(u_nl)-xi0,0)/(abs(Xi(u_nl) - xi0)+1e-10 )
+    elif (VersionDivEta==2) :
+        RHSalpha = RHSalpha+ gammar *abs(div(u_nl))  * sqrt(I2(u_nl));
+    elif (VersionDivEta==3) :
+        RHSalpha = RHSalpha+ gammar *Max(div(u_nl),0)* sqrt(I2(u_nl));
+    if (UsoEpsilonUpunto==1) :
+        muequiv= 2.0*mu0  - alpha_nl*(2*mur + gammar*Xi(u_nl) ) 
+    else :
+        muequiv= 2.0*mu0  - alpha_nl*(2*mur + gammar*Xi(u_nl) ) +  etaalpha        
+
+
+    tmp=project(muequiv-2.0*mu0 ,Va)
+    print "muequiv_min=",tmp.vector().min(),"max=",tmp.vector().max()
+    tmp=project(RHSalpha,Va)
+    print "RHSalpha_min=",tmp.vector().min(),"max=",tmp.vector().max()
+    # Compute solution
+    
+    FRHSalpha.assign(project(RHSalpha,Va))
+    Fetaalpha.assign(project(etaalpha,Va))
+    Fcxi1.assign(project(cxi1,Va))
+    Fmuequiv.assign(project(muequiv,Va))
+
+
+
+    ################### resuelve solo alpha #########################
+
+    if (itnl>1) :
+        alphasolo=Function(Va)
+        solve(BilinealEA == LinealEA, alphasolo, bcalpha)
+        print "\t\033[6;30;42malplaSolo: min,max=",alphasolo.vector().min(),",",alphasolo.vector().max(), '\033[0m'
+        if alphasolo.vector().max()>1 :
+            kappaD_exp.kappaD *= alphasolo.vector().max()
+            print "\t\033[6;30;42mNuevo kappaD=",kappaD_exp.kappaD, '\033[0m'
+            
+        solve(BilinealEA == LinealEA, alphasolo, bcalpha)
+        print "\t\033[6;30;42malplaSolo: min,max=",alphasolo.vector().min(),",",alphasolo.vector().max(), '\033[0m'
+
+    ################### resuelve solo alpha #########################
+
+    
+    A, b = assemble_system(BilinealE, LinealE, bc)
+    print 'Norma(A)=',A.norm('linf'),' Norma(b)=',b.norm('linf')
+    
+    
+    
+    
+    ua = Function(Vua)
+    solve(BilinealE == LinealE, ua, bc)
+    u,alpha=ua.split(deepcopy=True)
+    u_1_, u_2_, u_3_ = u.split(deepcopy=True)
+    
+    print "\tuxmin=",u_1_.vector().min(),"max=",u_1_.vector().max()
+    print "\tuymin=",u_2_.vector().min(),"max=",u_2_.vector().max()
+    print "\tuzmin=",u_3_.vector().min(),"max=",u_3_.vector().max()
+    print "\talmin=",alpha.vector().min(),"max=",alpha.vector().max()
+    
+    
+    errnl= norm(alpha.vector()-alpha_nl.vector(), 'linf')     \
+            +norm(u.vector()-u_nl.vector(), 'linf')
+    print 'errnl = \033[6;30;42m', errnl  , '\033[0m, FactorGrande =',FactorGrande.vector().max()
+    if (errnl<1e-8 and FactorGrande.vector().max()>1e-12) :
+        if FactorGrande.vector().max()>3000 :
+            FactorGrande.assign(project(FactorGrande*0.6,Va))
+        else :
+            FactorGrande.assign(project(FactorGrande*0.95,Va))
+        errnl=1;
+    if (alpha.vector().max()>1 or alpha.vector().min<-0.1) :
+        print '\033[6;30;43m Fuera de Rango ==> Corrijo \033[0m' 
+        FactorGrande.assign(project(FactorGrande*1.8,Va))
+        u.assign(u_nl)
+        alpha.assign(alpha_nl)
+        u_1_, u_2_, u_3_ = u.split(deepcopy=True)
+        print "\tuxmin=",u_1_.vector().min(),"max=",u_1_.vector().max()
+        print "\tuymin=",u_2_.vector().min(),"max=",u_2_.vector().max()
+        print "\tuzmin=",u_3_.vector().min(),"max=",u_3_.vector().max()
+        print "\talmin=",alpha.vector().min(),"max=",alpha.vector().max()
+        errnl=1;
+    if FactorGrande.vector().max()<3000 :
+        u_nl.assign(project(u_nl+(u-u_nl)*0.2,Vu))
+        alpha_nl.assign(project(alpha_nl+(alpha-alpha_nl)*0.2,Va))
+    else :
+        u_nl.assign(project(u_nl+(u-u_nl)*1,Vu))
+        alpha_nl.assign(project(alpha_nl+(alpha-alpha_nl)*1,Va))
+    
+    
 
 
 
@@ -220,7 +335,12 @@ for i in range(0,nt*0+1):
 
 
 
+z=Expression('x[2]',degree=1)
+V0 = FunctionSpace(mesh, 'P', 1)
+z=project(z,V0)
+plot(z)
 plot(u_nl)
+plot(alpha_nl)
 
 interactive()
     

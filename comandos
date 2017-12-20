@@ -10,3 +10,6 @@
  git add ElasticityDamage3D.edp
    14  git commit -m "first commit" -a
    15  git push -u origin master
+git add *
+git commit -m "first commit" -a
+ git push -u origin master
